@@ -1,17 +1,34 @@
 import logging
 
+from functools import wraps
 from flask import jsonify
 from google.cloud import firestore_v1
 
-db = firestore_v1.Client()
+
+def handler_errors(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            logging.error(f'Something went wrong: {e}')
+            response = {
+                'status': 'error'
+            }
+            return jsonify(response), 500
+    return wrapper
 
 
 def handler(request):
     arguments = dict(request.args)
+    print(request.args)
     path = request.view_args['path']
+    print(path)
     collection = path.split('/')[1]
+    db = firestore_v1.Client()
     q = db.collection(collection)
 
+    max = 3000
     limit = arguments.get('limit', None)
     if limit:
         arguments.pop('limit')
@@ -27,10 +44,20 @@ def handler(request):
 
     docs = q.stream()
 
-    result = []
+    results = []
     for doc in docs:
-        result.append(doc.to_dict())
+        results.append(doc.to_dict())
 
-    logging.info(f'Found {len(result)} records!')
+    logging.info(f'Found {len(results)} records!')
 
-    return jsonify(result), 200
+    response = {
+        'status': 'success',
+        'count': len(results),
+        'limit': limit,
+        'max': max,
+        'next': path,
+        'previous': path,
+        'results': results
+    }
+
+    return jsonify(response), 200
