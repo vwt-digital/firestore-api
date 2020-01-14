@@ -1,43 +1,42 @@
+import os
 import logging
 
-from functools import wraps
 from flask import jsonify
 from google.cloud import firestore_v1
 
 
-def handler_errors(func):
-    @wraps(func)
+def catch_error(func):
     def wrapper(*args, **kwargs):
         try:
-            func(*args, **kwargs)
+            return func(*args, **kwargs)
         except Exception as e:
-            logging.error(f'Something went wrong: {e}')
-            response = {
-                'status': 'error'
-            }
-            return jsonify(response), 500
+            logging.error(e)
+            return jsonify({'status': 'error'}), 500
     return wrapper
 
 
+@catch_error
 def handler(request):
+    '''Returns data from a firestore query.'''
+
     arguments = dict(request.args)
-    print(request.args)
+    arguments.pop('key', None)
     path = request.view_args['path']
-    print(path)
     collection = path.split('/')[1]
+
     db = firestore_v1.Client()
     q = db.collection(collection)
 
-    max = 3000
-    limit = arguments.get('limit', None)
-    if limit:
-        arguments.pop('limit')
-        q = q.limit(int(limit))
+    max = int(os.getenv('LIMIT', 3000))
+    limit = int(arguments.get('limit', max))
+    arguments.pop('limit', None)
+    if limit > max:
+        limit = max
+    q = q.limit(limit)
 
-    offset = arguments.get('offset', None)
-    if offset:
-        arguments.pop('offset')
-        q = q.limit(int(offset))
+    start = int(arguments.get('start', 0))
+    arguments.pop('start', None)
+    q = q.offset(start)
 
     for field, value in arguments.items():
         q = q.where(field, '==', value)
@@ -48,16 +47,40 @@ def handler(request):
     for doc in docs:
         results.append(doc.to_dict())
 
-    logging.info(f'Found {len(results)} records!')
+    size = len(results)
+    previous, next = pagination(start, limit, size, collection, arguments)
+    logging.info(f'Returning {size} records!')
 
     response = {
         'status': 'success',
-        'count': len(results),
-        'limit': limit,
+        'size': size,
         'max': max,
-        'next': path,
-        'previous': path,
+        'next': next,
+        'previous': previous,
         'results': results
     }
 
     return jsonify(response), 200
+
+
+def pagination(start, limit, size, coll, args):
+    '''Returns the previous and next page for a data request.'''
+
+    params = ''
+    for field, value in args.items():
+        params = params + f'&{field}={value}'
+
+    if size < limit:
+        next = ''
+    if start == 0:
+        previous = ''
+    if size == limit:
+        start = start + limit
+        limit = limit + limit
+        next = f'/{coll}?start={start}&limit={limit}{params}'
+    if start > 0:
+        start = max(start - limit, 0)
+        limit = max(limit - limit, 0)
+        previous = f'/{coll}?start={start}&limit={limit}{params}'
+
+    return previous, next
