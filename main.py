@@ -75,12 +75,12 @@ def pagination(start, limit, size, coll, args):
     if start == 0:
         previous = ''
     if size == limit:
-        start = start + limit
-        limit = limit + limit
-        next = f'/{coll}?start={start}&limit={limit}{params}'
+        begin = start + (limit - start)
+        end = limit + (limit - start)
+        next = f'/{coll}?start={begin}&limit={end}{params}'
     if start > 0:
-        start = max(start - limit, 0)
-        limit = max(limit - limit, 0)
-        previous = f'/{coll}?start={start}&limit={limit}{params}'
+        begin = max(start - (limit - start), 0)
+        end = max(limit - (limit - start), 0)
+        previous = f'/{coll}?start={begin}&limit={end}{params}'
 
     return previous, next
