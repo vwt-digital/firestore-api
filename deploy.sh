@@ -6,4 +6,4 @@ gcloud functions deploy ${PROJECT_ID}-firestore-api \
   --region=europe-west1 \
   --timeout=300s \
   --memory=2048MB \
-  --set-env-vars=LIMIT=3000
+  --set-env-vars=MAX=3000
