@@ -1,7 +1,7 @@
 import os
 import logging
 
-from flask import jsonify
+from flask import jsonify, make_response
 from google.cloud import firestore_v1
 
 
@@ -10,7 +10,7 @@ def catch_error(func):
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            logging.error(e)
+            logging.exception(f'Exception occurred: {e}')
             return jsonify({'status': 'error'}), 500
     return wrapper
 
@@ -27,7 +27,7 @@ def handler(request):
     db = firestore_v1.Client()
     q = db.collection(collection)
 
-    max = int(os.getenv('LIMIT', 3000))
+    max = int(os.getenv('MAX', 3000))
     limit = int(arguments.get('limit', max))
     arguments.pop('limit', None)
     if limit > max:
@@ -60,7 +60,7 @@ def handler(request):
         'results': results
     }
 
-    return jsonify(response), 200
+    return make_response(jsonify(response), 200, {'cache-control': 'private, max-age=3600, s-maxage=3600'})
 
 
 def pagination(start, limit, size, coll, args):
@@ -75,12 +75,12 @@ def pagination(start, limit, size, coll, args):
     if start == 0:
         previous = ''
     if size == limit:
-        start = start + limit
-        limit = limit + limit
-        next = f'/{coll}?start={start}&limit={limit}{params}'
+        begin = start + (limit - start)
+        end = limit + (limit - start)
+        next = f'/{coll}?start={begin}&limit={end}{params}'
     if start > 0:
-        start = max(start - limit, 0)
-        limit = max(limit - limit, 0)
-        previous = f'/{coll}?start={start}&limit={limit}{params}'
+        begin = max(start - (limit - start), 0)
+        end = max(limit - (limit - start), 0)
+        previous = f'/{coll}?start={begin}&limit={end}{params}'
 
     return previous, next
