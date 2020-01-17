@@ -60,7 +60,7 @@ def handler(request):
         'results': results
     }
 
-    return make_response(jsonify(response), 200, {'cache-control': 'private, max-age=3600, s-maxage=600'})
+    return make_response(jsonify(response), 200, {'cache-control': 'private, max-age=3600, s-maxage=3600'})
 
 
 def pagination(start, limit, size, coll, args):
