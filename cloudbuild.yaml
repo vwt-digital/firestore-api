@@ -46,7 +46,7 @@ steps:
       --region europe-west1 \
       --format json > /workspace/services.json
     _SERVICE=$(cat /workspace/services.json | python -c 'import sys, json; print json.load(sys.stdin)["metadata"]["name"]')
-    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" config/${PROJECT_ID}/dispatch.yaml | head -n1)
+    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
     gcloud beta run domain-mappings list --filter=$${_DOMAIN} \
       --platform managed \
       --region europe-west1 \
@@ -63,9 +63,9 @@ steps:
   args:
   - '-c'
   - |
-    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" config/${PROJECT_ID}/dispatch.yaml | head -n1)
+    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
     _ADDRESS="https://europe-west1-${PROJECT_ID}.cloudfunctions.net/${PROJECT_ID}-firestore-api"
-    sed -e "s|HOST|$$_DOMAIN|" -e "s|ADDRESS|$$_ADDRESS|" config/${PROJECT_ID}/openapi.yaml > /workspace/openapi.yaml
+    sed -i -e "s|HOST|$$_DOMAIN|" -e "s|ADDRESS|$$_ADDRESS|" /workspace/openapi.yaml
 
 # Deploy ESP configuration
 - name: 'gcr.io/cloud-builders/gcloud'
@@ -83,7 +83,7 @@ steps:
   - '-c'
   - |
     _ID=$(cat /workspace/endpoints.txt | grep -Po '\[\K[^]]*' | head -1)
-    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" config/${PROJECT_ID}/dispatch.yaml | head -n1)
+    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
     curl -s https://raw.githubusercontent.com/GoogleCloudPlatform/esp-v2/master/docker/serverless/gcloud_build_image | bash -s -- \
       -s $${_DOMAIN} \
       -p ${PROJECT_ID} \
@@ -95,7 +95,7 @@ steps:
   args:
   - '-c'
   - |
-    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" config/${PROJECT_ID}/dispatch.yaml | head -n1)
+    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
     _ID=$(cat /workspace/endpoints.txt | grep -Po '\[\K[^]]*' | head -1)
     gcloud run deploy ${PROJECT_ID}-esp-svc \
       --image="gcr.io/${PROJECT_ID}/endpoints-runtime-serverless:$${_DOMAIN}-$${_ID}" \
