@@ -1,0 +1,119 @@
+steps:
+# Deploy firestore http function
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud functions deploy ${PROJECT_ID}-firestore-api \
+      --entry-point=handler \
+      --runtime=python37 \
+      --trigger-http \
+      --project=${PROJECT_ID} \
+      --region=europe-west1 \
+      --timeout=300s \
+      --memory=2048MB \
+      --max-instances=10
+  dir: firestore-api
+
+# Deploy ESP service to Cloud Run
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud run services list \
+      --platform managed \
+      --project ${PROJECT_ID} \
+      --region europe-west1 \
+      --filter=${PROJECT_ID}-esp-svc \
+      --format yaml | grep . ||
+    gcloud run deploy ${PROJECT_ID}-esp-svc \
+      --image="gcr.io/endpoints-release/endpoints-runtime-serverless:2" \
+      --allow-unauthenticated \
+      --platform managed \
+      --project=${PROJECT_ID} \
+      --region=europe-west1
+
+# Domain mappings
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud run services describe ${PROJECT_ID}-esp-svc \
+      --platform managed \
+      --project ${PROJECT_ID} \
+      --region europe-west1 \
+      --format json > /workspace/services.json
+    _SERVICE=$(cat /workspace/services.json | python -c 'import sys, json; print json.load(sys.stdin)["metadata"]["name"]')
+    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" config/${PROJECT_ID}/dispatch.yaml | head -n1)
+    gcloud beta run domain-mappings list --filter=$${_DOMAIN} \
+      --platform managed \
+      --region europe-west1 \
+      --project ${PROJECT_ID} | grep $${_DOMAIN} ||
+    gcloud beta run domain-mappings create --service $${_SERVICE} \
+      --platform managed \
+      --domain $${_DOMAIN} \
+      --project ${PROJECT_ID} \
+      --region europe-west1
+
+# Get ESP service hostname
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" config/${PROJECT_ID}/dispatch.yaml | head -n1)
+    _ADDRESS="https://europe-west1-${PROJECT_ID}.cloudfunctions.net/${PROJECT_ID}-firestore-api"
+    sed -e "s|HOST|$$_DOMAIN|" -e "s|ADDRESS|$$_ADDRESS|" config/${PROJECT_ID}/openapi.yaml > /workspace/openapi.yaml
+
+# Deploy ESP configuration
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud endpoints services deploy /workspace/openapi.yaml \
+      --project ${PROJECT_ID} &> /workspace/endpoints.txt
+
+# Build custom ESP container
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    _ID=$(cat /workspace/endpoints.txt | grep -Po '\[\K[^]]*' | head -1)
+    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" config/${PROJECT_ID}/dispatch.yaml | head -n1)
+    curl -s https://raw.githubusercontent.com/GoogleCloudPlatform/esp-v2/master/docker/serverless/gcloud_build_image | bash -s -- \
+      -s $${_DOMAIN} \
+      -p ${PROJECT_ID} \
+      -c $${_ID}
+
+# Deploy custom ESP container
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" config/${PROJECT_ID}/dispatch.yaml | head -n1)
+    _ID=$(cat /workspace/endpoints.txt | grep -Po '\[\K[^]]*' | head -1)
+    gcloud run deploy ${PROJECT_ID}-esp-svc \
+      --image="gcr.io/${PROJECT_ID}/endpoints-runtime-serverless:$${_DOMAIN}-$${_ID}" \
+      --allow-unauthenticated \
+      --platform managed \
+      --project=${PROJECT_ID} \
+      --region=europe-west1
+
+# Grant ESP permission to invoke function
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    _PROJECT_NUMBER=$(gcloud projects list --filter="${PROJECT_ID}" --format="value(PROJECT_NUMBER)")
+    gcloud functions add-iam-policy-binding ${PROJECT_ID}-firestore-api \
+      --member "serviceAccount:$${_PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+      --role "roles/cloudfunctions.invoker" \
+      --project ${PROJECT_ID} \
+      --region europe-west1
