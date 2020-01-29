@@ -12,5 +12,7 @@ This repository contains a Firestore API written in Python 3.7. The API can be d
   args:
   - 'builds'
   - 'submit'
-  - '--config cloudbuild.yaml'
+  - '.'
+  - '--config'
+  - 'cloudbuild.yaml'
 ```
