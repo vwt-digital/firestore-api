@@ -9,7 +9,7 @@ swagger: '2.0'
   produces:
     - application/json
   x-google-backend:
-    address: https://hello-HASH-uc.a.run.app
+    address: ADDRESS
   paths:
     /hello:
       get:
