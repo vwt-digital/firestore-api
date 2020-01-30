@@ -84,7 +84,7 @@ steps:
   - |
     _ID=$(cat /workspace/endpoints.txt | grep -Po '\[\K[^]]*' | head -1)
     _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
-    curl -s https://raw.githubusercontent.com/GoogleCloudPlatform/esp-v2/master/docker/serverless/gcloud_build_image | bash -s -- \
+    bash /workspace/gcloud_build_image \
       -s $${_DOMAIN} \
       -p ${PROJECT_ID} \
       -c $${_ID}
