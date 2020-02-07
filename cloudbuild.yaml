@@ -32,7 +32,8 @@ steps:
       --allow-unauthenticated \
       --platform managed \
       --project=${PROJECT_ID} \
-      --region=europe-west1
+      --region=europe-west1 \
+      --timeout=120
 
 # Domain mappings
 - name: 'gcr.io/cloud-builders/gcloud'
@@ -102,7 +103,8 @@ steps:
       --allow-unauthenticated \
       --platform managed \
       --project=${PROJECT_ID} \
-      --region=europe-west1
+      --region=europe-west1 \
+      --timeout=120
 
 # Grant ESP permission to invoke function
 - name: 'gcr.io/cloud-builders/gcloud'
