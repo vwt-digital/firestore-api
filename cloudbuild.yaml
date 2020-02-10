@@ -118,3 +118,15 @@ steps:
       --role "roles/cloudfunctions.invoker" \
       --project ${PROJECT_ID} \
       --region europe-west1
+
+# FIX: Temporary allow all users to invoke api
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud functions add-iam-policy-binding ${PROJECT_ID}-firestore-api \
+      --member "allUsers" \
+      --role "roles/cloudfunctions.invoker" \
+      --project ${PROJECT_ID} \
+      --region europe-west1
