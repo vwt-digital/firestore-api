@@ -39,18 +39,18 @@ def handler(request):
     db = firestore_v1.Client()
     q = db.collection(collection)
 
+    max = int(os.getenv('MAX', 3000))
+    page_size = int(arguments.pop('page_size', max))
+    if page_size > max:
+        page_size = max
+    q = q.limit(page_size)
+
     if arguments.get('next_cursor'):
         id = arguments.pop('next_cursor')
         snapshot = db.collection(collection).document(id).get()
         logging.info(f'Starting query at cursor: {id}')
         if snapshot:
-            q = q.start_at(snapshot)
-
-    max = int(os.getenv('MAX', 3000))
-    page_size = int(arguments.pop('page_size', max))
-    if page_size > max:
-        page_size = max
-    q = q.limit(page_size + 1)
+            q = q.start_after(snapshot)
 
     for field, value in arguments.items():
         q = q.where(field, '==', value)
@@ -61,13 +61,9 @@ def handler(request):
         results.append(doc.to_dict())
     cursor = doc.id
 
-    size = len(results)
-    if results and (page_size + 1) == size:
-        del results[-1]
-        size = size - 1
-
     next = ''
-    if page_size == size:
+    size = len(results)
+    if results and (page_size == size):
         next = f'/{collection}?next_cursor={cursor}&page_size={page_size}'
         for field, value in arguments.items():
             next = next + f'&{field}={value}'
