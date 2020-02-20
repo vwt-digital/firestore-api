@@ -31,6 +31,7 @@ def handler(request):
     )
     if not arguments.get('key') == secret:
         return ('Unauthorized!', 403)
+
     arguments.pop('key', None)
     path = request.view_args['path']
     collection = path.split('/')[1]
@@ -39,57 +40,42 @@ def handler(request):
     q = db.collection(collection)
 
     max = int(os.getenv('MAX', 3000))
-    limit = int(arguments.get('limit', max))
-    arguments.pop('limit', None)
-    if limit > max:
-        limit = max
-    q = q.limit(limit)
+    page_size = int(arguments.pop('page_size', max))
+    if page_size > max:
+        page_size = max
+    q = q.limit(page_size)
 
-    start = int(arguments.get('start', 0))
-    arguments.pop('start', None)
-    q = q.offset(start)
+    if arguments.get('next_cursor'):
+        id = arguments.pop('next_cursor')
+        snapshot = db.collection(collection).document(id).get()
+        logging.info(f'Starting query at cursor: {id}')
+        if snapshot:
+            q = q.start_after(snapshot)
 
     for field, value in arguments.items():
         q = q.where(field, '==', value)
 
-    docs = q.stream()
-
     results = []
+    docs = q.stream()
     for doc in docs:
         results.append(doc.to_dict())
+    cursor = doc.id
 
+    next = ''
     size = len(results)
-    previous, next = pagination(start, limit, size, collection, arguments)
+    if results and (page_size == size):
+        next = f'/{collection}?next_cursor={cursor}&page_size={page_size}'
+        for field, value in arguments.items():
+            next = next + f'&{field}={value}'
+
     logging.info(f'Returning {size} records!')
 
     response = {
         'status': 'success',
-        'size': size,
+        'page_size': size,
         'max': max,
         'next': next,
-        'previous': previous,
         'results': results
     }
 
     return make_response(jsonify(response), 200, {'cache-control': 'private, max-age=3600, s-maxage=3600'})
-
-
-def pagination(start, limit, size, coll, args):
-    '''Returns the previous and next page for a data request.'''
-
-    params = ''
-    for field, value in args.items():
-        params = params + f'&{field}={value}'
-
-    if size < limit:
-        next = ''
-    if start == 0:
-        previous = ''
-    if size == limit:
-        begin = start + limit
-        next = f'/{coll}?start={begin}&limit={limit}{params}'
-    if start > 0:
-        begin = max(start - limit, 0)
-        previous = f'/{coll}?start={begin}&limit={limit}{params}'
-
-    return previous, next
