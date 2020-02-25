@@ -1,6 +1,4 @@
 import os
-import utils
-import config
 import logging
 
 from flask import jsonify, make_response
@@ -22,16 +20,6 @@ def handler(request):
     '''Returns data from a firestore query.'''
 
     arguments = dict(request.args)
-    secret = utils.decrypt_secret(
-        config.api['project'],
-        config.api['region'],
-        config.api['keyring'],
-        config.api['key'],
-        config.api['secret_base64']
-    )
-    if not arguments.get('key') == secret:
-        return ('Unauthorized!', 403)
-
     arguments.pop('key', None)
     path = request.view_args['path']
     collection = path.split('/')[1]
