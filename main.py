@@ -47,12 +47,11 @@ def handler(request):
     docs = q.stream()
     for doc in docs:
         results.append(doc.to_dict())
-    cursor = doc.id
 
     next = ''
     size = len(results)
     if results and (page_size == size):
-        next = f'/{collection}?next_cursor={cursor}&page_size={page_size}'
+        next = f'/{collection}?next_cursor={doc.id}&page_size={page_size}'
         for field, value in arguments.items():
             next = next + f'&{field}={value}'
 
