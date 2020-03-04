@@ -41,7 +41,10 @@ def handler(request):
             q = q.start_after(snapshot)
 
     for field, value in arguments.items():
-        q = q.where(field, '==', value)
+        if isinstance(value, list):
+            q = q.where(field, 'in', value)
+        else:
+            q = q.where(field, '==', value)
 
     results = []
     docs = q.stream()
@@ -55,7 +58,7 @@ def handler(request):
         for field, value in arguments.items():
             next = next + f'&{field}={value}'
 
-    logging.info(f'Returning {size} records!')
+    logging.info(f'Returning {size} record(s)!')
 
     response = {
         'status': 'success',
