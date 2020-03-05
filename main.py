@@ -40,16 +40,21 @@ def handler(request):
         if snapshot:
             q = q.start_after(snapshot)
 
-    for field, value in arguments.items():
-        if isinstance(value, list):
-            q = q.where(field, 'in', value)
-        else:
-            q = q.where(field, '==', value)
+    # Return filtered documents with IN query
+    multi = request.args.to_dict(flat=False)
+    for field, values in multi.items():
+        if len(values) > 1:
+            logging.info(f'Filtering {field} in {values}')
+            q = q.where(field, 'in', values)
+            arguments.pop(field, None)
 
-    results = []
+    # Return filtered documents
+    for field, value in arguments.items():
+        logging.info(f'Filtering {field} == {value}')
+        q = q.where(field, '==', value)
+
     docs = q.stream()
-    for doc in docs:
-        results.append(doc.to_dict())
+    results = [doc.to_dict() for doc in docs]
 
     next = ''
     size = len(results)
