@@ -1,6 +1,4 @@
 import os
-import utils
-import config
 import logging
 
 from flask import jsonify, make_response
@@ -22,16 +20,6 @@ def handler(request):
     '''Returns data from a firestore query.'''
 
     arguments = dict(request.args)
-    secret = utils.decrypt_secret(
-        config.api['project'],
-        config.api['region'],
-        config.api['keyring'],
-        config.api['key'],
-        config.api['secret_base64']
-    )
-    if not arguments.get('key') == secret:
-        return ('Unauthorized!', 403)
-
     arguments.pop('key', None)
     path = request.view_args['path']
     collection = path.split('/')[1]
@@ -52,23 +40,32 @@ def handler(request):
         if snapshot:
             q = q.start_after(snapshot)
 
+    # Return filtered documents with IN query
+    multi = request.args.to_dict(flat=False)
+    for field, values in multi.items():
+        if len(values) > 1:
+            logging.info(f'Filtering {field} in {values}')
+            q = q.where(field, 'in', values)
+            arguments.pop(field, None)
+
+    # Return filtered documents
     for field, value in arguments.items():
+        logging.info(f'Filtering {field} == {value}')
         q = q.where(field, '==', value)
 
-    results = []
     docs = q.stream()
+    results = []
     for doc in docs:
         results.append(doc.to_dict())
-    cursor = doc.id
 
     next = ''
     size = len(results)
     if results and (page_size == size):
-        next = f'/{collection}?next_cursor={cursor}&page_size={page_size}'
+        next = f'/{collection}?next_cursor={doc.id}&page_size={page_size}'
         for field, value in arguments.items():
             next = next + f'&{field}={value}'
 
-    logging.info(f'Returning {size} records!')
+    logging.info(f'Returning {size} record(s)!')
 
     response = {
         'status': 'success',
