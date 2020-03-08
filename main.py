@@ -54,7 +54,9 @@ def handler(request):
         q = q.where(field, '==', value)
 
     docs = q.stream()
-    results = [doc.to_dict() for doc in docs]
+    results = []
+    for doc in docs:
+        results.append(doc.to_dict())
 
     next = ''
     size = len(results)
