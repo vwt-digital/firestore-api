@@ -84,9 +84,9 @@ steps:
   - '-c'
   - |
     _ID=$(cat /workspace/endpoints.txt | grep -Po '\[\K[^]]*' | head -1)
-    _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
+    _SERVICE=$(gcloud endpoints services list --project ${PROJECT_ID} --format="value(NAME)")
     bash /workspace/gcloud_build_image \
-      -s $${_DOMAIN} \
+      -s $${_SERVICE} \
       -p ${PROJECT_ID} \
       -c $${_ID}
 
