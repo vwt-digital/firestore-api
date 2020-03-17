@@ -28,7 +28,7 @@ steps:
       --filter=${PROJECT_ID}-esp-svc \
       --format yaml | grep . ||
     gcloud run deploy ${PROJECT_ID}-esp-svc \
-      --image="gcr.io/endpoints-release/endpoints-runtime-serverless:2" \
+      --image="eu.gcr.io/endpoints-release/endpoints-runtime-serverless:2" \
       --allow-unauthenticated \
       --platform managed \
       --project=${PROJECT_ID} \
@@ -85,9 +85,8 @@ steps:
   - |
     _ID=$(cat /workspace/endpoints.txt | grep -Po '\[\K[^]]*' | head -1)
     _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
-    _SERVICE=$(cat /workspace/services.json | python -c 'import sys, json; print json.load(sys.stdin)["metadata"]["name"]')
     bash /workspace/gcloud_build_image \
-      -s $${_SERVICE} \
+      -s $${_DOMAIN} \
       -p ${PROJECT_ID} \
       -c $${_ID}
 
@@ -99,9 +98,8 @@ steps:
   - |
     _ID=$(cat /workspace/endpoints.txt | grep -Po '\[\K[^]]*' | head -1)
     _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
-    _SERVICE=$(cat /workspace/services.json | python -c 'import sys, json; print json.load(sys.stdin)["metadata"]["name"]')
     gcloud run deploy ${PROJECT_ID}-esp-svc \
-      --image="eu.gcr.io/${PROJECT_ID}/endpoints-runtime-serverless:$${_SERVICE}-$${_ID}" \
+      --image="eu.gcr.io/${PROJECT_ID}/endpoints-runtime-serverless:$${_DOMAIN}-$${_ID}" \
       --allow-unauthenticated \
       --platform managed \
       --project=${PROJECT_ID} \
