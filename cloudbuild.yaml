@@ -28,7 +28,7 @@ steps:
       --filter=${PROJECT_ID}-esp-svc \
       --format yaml | grep . ||
     gcloud run deploy ${PROJECT_ID}-esp-svc \
-      --image="eu.gcr.io/endpoints-release/endpoints-runtime-serverless:2" \
+      --image="gcr.io/endpoints-release/endpoints-runtime-serverless:2" \
       --allow-unauthenticated \
       --platform managed \
       --project=${PROJECT_ID} \
