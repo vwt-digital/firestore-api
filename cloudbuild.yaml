@@ -75,7 +75,7 @@ steps:
   - '-c'
   - |
     gcloud endpoints services deploy /workspace/openapi.yaml \
-      --project ${PROJECT_ID} &> /workspace/endpoints.txt
+      --project ${PROJECT_ID} 2>&1 | tee /workspace/endpoints.txt
 
 # Build custom ESP container
 - name: 'gcr.io/cloud-builders/gcloud'
