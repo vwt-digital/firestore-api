@@ -14,7 +14,8 @@ steps:
           --region=europe-west1 \
           --timeout=300s \
           --memory=2048MB \
-          --max-instances=10
+          --max-instances=10 \
+          --set-env-vars=OAUTH_REQUIRED_ROLE=${_OAUTH_REQUIRED_ROLE}
 
   # Deploy ESP service to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -47,7 +48,8 @@ steps:
           --project ${PROJECT_ID} \
           --region europe-west1 \
           --format json > /workspace/services.json
-        _SERVICE=$(cat /workspace/services.json | python -c 'import sys, json; print json.load(sys.stdin)["metadata"]["name"]')
+        _SERVICE=$(cat /workspace/services.json |
+          python -c 'import sys, json; print json.load(sys.stdin)["metadata"]["name"]')
         _DOMAIN=$(sed -n "s/\s*-\s*url.*:\s*\"\(.*\)\/.*/\1/p" /workspace/dispatch.yaml | head -n1)
         gcloud beta run domain-mappings list --filter=$${_DOMAIN} \
           --platform managed \
@@ -119,3 +121,5 @@ steps:
           --role "roles/cloudfunctions.invoker" \
           --project ${PROJECT_ID} \
           --region europe-west1
+substitutions:
+  _OAUTH_REQUIRED_ROLE: required_roles_claim_item
