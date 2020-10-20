@@ -10,6 +10,7 @@ swagger: '2.0'
     - application/json
   x-google-backend:
     address: ADDRESS
+    deadline: DOUBLE
   paths:
     /hello:
       get:
